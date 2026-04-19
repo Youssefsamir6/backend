@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const alertSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    index: true
   },
   type: {
     type: String,
@@ -18,13 +19,19 @@ const alertSchema = new mongoose.Schema({
   },
   isRead: {
     type: Boolean,
-    default: false
+    default: false,
+    index: true
   },
   timestamp: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true
   }
 });
+
+// Indexes for queries
+alertSchema.index({ userId: 1, isRead: 1, timestamp: -1 });
+alertSchema.index({ timestamp: -1 });
 
 module.exports = mongoose.model('Alert', alertSchema);
 

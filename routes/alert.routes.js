@@ -2,15 +2,23 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, authorizeRoles } = require('../middleware/auth.middleware');
 const {
-  getAlerts,
+  getAllAlerts,
+  getUserAlertsHandler,
+  getUnreadCountHandler,
   markAlertAsRead
 } = require('../controllers/alert.controller');
 
 router.use(authenticateToken);
-router.use(authorizeRoles('admin', 'guard'));
 
-router.get('/', getAlerts);
-router.patch('/:id/read', markAlertAsRead);
+// Admin/Guard: all alerts
+router.use(authorizeRoles('admin', 'guard'), [
+  router.get('/', getAllAlerts),
+  router.patch('/:id/read', markAlertAsRead)
+]);
+
+// Any auth user: own alerts + count
+router.get('/user/:userId', getUserAlertsHandler); // ?unread=true
+router.get('/user/:userId/unread-count', getUnreadCountHandler);
 
 module.exports = router;
 

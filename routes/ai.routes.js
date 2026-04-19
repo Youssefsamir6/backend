@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { recognition } = require('../controllers/ai.controller');
+const { authenticateToken } = require('../middleware/auth.middleware');
+const { recognition, smartAccess } = require('../controllers/ai.controller');
 
-router.post('/recognition', recognition);
+router.use(authenticateToken);
+
+router.post('/recognition', recognition); // Basic face rec
+router.post('/smart-access', smartAccess); // Full decision + auto-log
 
 module.exports = router;
 

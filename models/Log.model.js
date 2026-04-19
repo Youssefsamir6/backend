@@ -26,9 +26,16 @@ const logSchema = new mongoose.Schema({
   },
   timestamp: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true
   }
 });
+
+// Compound indexes for queries/analytics
+logSchema.index({ timestamp: -1 });
+logSchema.index({ userId: 1, timestamp: -1 });
+logSchema.index({ method: 1, status: 1, timestamp: -1 });
+logSchema.index({ gateName: 1, timestamp: -1 });
 
 module.exports = mongoose.model('Log', logSchema);
 
