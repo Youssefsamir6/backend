@@ -1,32 +1,23 @@
-const alerts = [];
+const Alert = require('../models/Alert.model');
+const User = require('../models/User.model');
 
-function createAlert({ userId, type }) {
-  const alert = {
-    id: alerts.length + 1,
-    userId,
-    type,
-    timestamp: new Date(),
-    isRead: false
-  };
-
-  alerts.push(alert);
-  console.log("ALERT CREATED:", alert);
-}
-
-function getAllAlerts() {
-  return alerts;
-}
-
-function markAsRead(id) {
-  const alert = alerts.find(a => a.id === Number(id));
-  if (!alert) return null;
-
-  alert.isRead = true;
+const createAlert = async ({ userId, type, message = '', severity = 'medium' }) => {
+  const alert = new Alert({ userId, type, message, severity });
+  await alert.save();
   return alert;
-}
-
-module.exports = {
-  createAlert,
-  getAllAlerts,
-  markAsRead
 };
+
+const getAlerts = async () => {
+  return await Alert.find().populate('userId', 'email').sort({ timestamp: -1 });
+};
+
+const markAsRead = async (id) => {
+  const alert = await Alert.findById(id);
+  if (!alert) throw new Error('Alert not found');
+  alert.isRead = true;
+  await alert.save();
+  return alert;
+};
+
+module.exports = { createAlert, getAlerts, markAsRead };
+

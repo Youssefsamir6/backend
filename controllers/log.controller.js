@@ -1,8 +1,13 @@
-const { getAllLogs } = require("../services/log.service");
+const { getLogs } = require('../services/log.service');
 
-function getLogs(req, res) {
-  const logs = getAllLogs();
-  res.json(logs);
-}
+const getAllLogs = async (req, res) => {
+  try {
+    const logs = await getLogs(req.query); // ?userId=..&status=..&method=..&startDate=..&endDate=..
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
-module.exports = { getLogs };
+module.exports = { getAllLogs };
+

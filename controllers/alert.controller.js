@@ -1,21 +1,21 @@
-const { getAllAlerts, markAsRead } = require("../services/alert.service");
+const { getAlerts, markAsRead } = require('../services/alert.service');
 
-function getAlerts(req, res) {
-  res.json(getAllAlerts());
-}
-
-function markAlertAsRead(req, res) {
-  const { id } = req.params;
-
-  const alert = markAsRead(id);
-  if (!alert) {
-    return res.status(404).json({ error: "Alert not found" });
+const getAllAlerts = async (req, res) => {
+  try {
+    const alerts = await getAlerts();
+    res.json(alerts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  res.json({ message: "Alert marked as read", alert });
-}
-
-module.exports = {
-  getAlerts,
-  markAlertAsRead
 };
+
+const markAlertAsRead = async (req, res) => {
+  try {
+    const alert = await markAsRead(req.params.id);
+    res.json({ message: 'Alert marked as read', alert });
+  } catch (error) {
+    res.status(404).json({ error: error.message });
+  }
+};
+
+module.exports = { getAllAlerts, markAlertAsRead };

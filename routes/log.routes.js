@@ -1,7 +1,12 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const { getLogs } = require("../controllers/log.controller");
+const { authenticateToken, authorizeRoles } = require('../middleware/auth.middleware');
+const { getAllLogs } = require('../controllers/log.controller');
 
-router.get("/", getLogs);
+router.use(authenticateToken);
+router.use(authorizeRoles('admin', 'guard'));
+
+router.get('/', getAllLogs);
 
 module.exports = router;
+
