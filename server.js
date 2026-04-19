@@ -34,6 +34,9 @@ io.on('connection', (socket) => {
 // Export io for services
 global.io = io;
 
+// Reusable getIO function for services
+module.exports.getIO = () => io;
+
 // Test Route
 app.get("/", (req, res) => {
   res.send("Smart Access Backend w/ Socket.io");

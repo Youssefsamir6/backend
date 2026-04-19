@@ -5,8 +5,9 @@ const Alert = require('../models/Alert.model');
 // For legacy/hybrid support
 const { createLog } = require('./log.service');
 
-// Global io from server
-const io = global.io;
+// Reusable io from server
+const getIO = require('../server').getIO;
+const io = getIO();
 
 /**
  * Central access control function following exact specification
