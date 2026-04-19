@@ -5,10 +5,20 @@ const { createAlert } = require('./alert.service');
 // Global io from server
 const io = global.io;
 
-const createLog = async ({ userId, status, method, reason, gateName = 'Main Gate' }) => {
-  await User.findById(userId);
+const createLog = async ({ userId, status, method, reason, gateName = 'Main Gate', identificationReason = '' }) => {
+  if (userId) {
+    await User.findById(userId).lean(); // Validate exists, lean for perf
+  }
 
-  const log = new Log({ userId, status, method, reason, gateName });
+  const logData = { 
+    userId: userId || 'unknown',
+    status, 
+    method, 
+    reason, 
+    gateName,
+    identificationReason // New field support
+  };
+  const log = new Log(logData);
   await log.save();
 
   // Socket emit

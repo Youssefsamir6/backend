@@ -1,5 +1,4 @@
-const { recognizeFace, smartDecision } = require('../services/ai.service');
-const { createLog } = require('../services/log.service');
+const { handleAccessEvent, recognizeFace } = require('../services/accessEvent.service');
 
 const recognition = async (req, res) => {
   try {
@@ -18,20 +17,12 @@ const smartAccess = async (req, res) => {
     const { image, gateName = 'Main Gate' } = req.body;
     if (!image) return res.status(400).json({ error: 'Image required' });
 
-    const decision = await smartDecision(image, gateName);
-    
-    // Auto-log the smart decision
-    if (decision.readyForLog) {
-      await createLog({
-        userId: decision.userId || 'unknown',
-        status: decision.status,
-        method: decision.method,
-        reason: decision.reason,
-        gateName
-      });
-    }
-
-    res.json(decision);
+    const result = await handleAccessEvent({
+      image,
+      method: 'face',
+      gateName
+    });
+    res.json(result.decision);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
