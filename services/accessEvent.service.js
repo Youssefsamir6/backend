@@ -1,67 +1,96 @@
 const User = require('../models/User.model');
 const Log = require('../models/Log.model');
+const Alert = require('../models/Alert.model');
+
+// For legacy/hybrid support
 const { createLog } = require('./log.service');
-const { createAlert } = require('./alert.service');
 
 // Global io from server
 const io = global.io;
 
 /**
- * Central function: Device → API → Decision → Save Log → Emit Event → Frontend
- * @param {Object} data - {userId?: string, rfid?: string, image?: base64, method: 'rfid'|'face'|'manual', gateName: string}
- * @returns {Promise<{decision: Object, log: Object}>}
+ * Central access control function following exact specification
+ * @param {Object} data - { userId, method: "face"|"card", timestamp, deviceId, confidence (for AI), gateName? }
+ * @returns {Promise<{success: boolean, status?: string, error?: string}>}
  */
-const handleAccessEvent = async (data) => {
-  const { userId: providedUserId, rfid, image, method, gateName = 'Main Gate' } = data;
-
-  // Step 1: Identify user
-  let identifiedUserId = null;
-  let identificationReason = '';
-
-  if (providedUserId) {
-    const user = await User.findById(providedUserId);
-    if (user) {
-      identifiedUserId = user._id;
-      identificationReason = 'Provided userId validated';
-    } else {
-      identificationReason = 'Invalid provided userId';
+async function handleAccessEvent(data) {
+  try {
+    // 1. Input validation (strict per spec)
+    const { userId, method, timestamp = new Date(), deviceId, confidence, gateName = 'Main Gate' } = data;
+    
+    if (!userId || !method || !deviceId) {
+      throw new Error('Missing required fields: userId, method, deviceId');
     }
-  } else if (rfid) {
-    // Mock RFID lookup (extend with real RFID-user mapping)
-    const user = await User.findOne({ rfid }); // Assume User has rfid field or extend model
-    if (user) {
-      identifiedUserId = user._id;
-      identificationReason = `RFID ${rfid} matched`;
+
+    // 2. Identify/lookup user
+    const user = await User.findById(data.userId).select('name email isActive'); // Assume 'name' added or use email
+
+    // 3. Decision engine
+    let status = "denied";
+
+    if (user && user.isActive) {
+      const now = new Date(); // Use current time (timestamp logged separately)
+      
+      // Time-based rule (8am-6pm)
+      if (now.getHours() >= 8 && now.getHours() <= 18) {
+        status = "authorized";
+      } else {
+        status = "denied"; // Time violation
+      }
     } else {
-      identificationReason = `Unknown RFID ${rfid}`;
+      status = "denied"; // Inactive or not found
     }
-  } else if (image && method === 'face') {
-    const rec = await recognizeFace(image);
-    identifiedUserId = rec.userId;
-    identificationReason = `Face rec: ${rec.confidence.toFixed(2)} conf (${rec.status})`;
-  } else {
-    throw new Error('No identification method provided (userId, rfid, or image+face)');
+
+    // Status for logging (capitalize)
+    const logStatus = status === 'authorized' ? 'Authorized' : 'Unauthorized';
+
+    // 4. Save log (direct model create)
+    const log = await Log.create({
+      userId: user ? user._id : null,
+      status: logStatus,
+      method: data.method,
+      timestamp: timestamp,
+      deviceId,
+      confidence: confidence || null,
+      reason: status === 'authorized' ? 'Active user, within time window' : 
+              (user ? 'Inactive user or outside time window' : 'User not found'),
+      gateName
+    });
+
+    // 5. Alert if denied
+    if (status === "denied") {
+      await Alert.create({
+        type: "unauthorized_access",
+        message: "Access denied",
+        userId: user ? user._id : null,
+        severity: 'high',
+        timestamp: new Date()
+      });
+
+      // Emit alert (global)
+      io.emit("alert", {
+        type: "unauthorized",
+        user: user ? (user.name || user.email) : "Unknown"
+      });
+    }
+
+    // 6. Emit real-time event (exact task format)
+    io.emit("access_event", {
+      user: user ? (user.name || user.email) : "Unknown",
+      status: logStatus,
+      method: data.method,
+      time: new Date()
+    });
+
+    return { success: true, status };
+
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: error.message };
   }
+}
 
-  // Step 2: Decide (allow/deny)
-  const decision = await smartDecision(image || null, gateName, identifiedUserId);
-  decision.identification = { userId: identifiedUserId, reason: identificationReason };
-
-  // Step 3-5: Save log → alert if needed → emit events (handled by createLog)
-  const logData = {
-    userId: identifiedUserId || 'unknown',
-    status: decision.status,
-    method,
-    reason: decision.reason,
-    gateName,
-    identificationReason
-  };
-  const log = await createLog(logData);
-
-  return { decision, log };
-};
-
-// Moved from ai.service.js
+// Legacy functions (unchanged)
 const recognizeFace = async (imageBase64) => {
   // Simulate hash from base64 for deterministic mock
   const hash = imageBase64.slice(-8);

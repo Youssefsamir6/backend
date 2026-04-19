@@ -16,10 +16,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['admin', 'guard', 'user'],
     default: 'user'
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  rfid: {
+    type: String,
+    sparse: true
   }
 }, {
   timestamps: true
 });
+
+// Indexes
+userSchema.index({ rfid: 1 });
+userSchema.index({ isActive: 1 });
 
 // Hash password before save
 userSchema.pre('save', async function(next) {
