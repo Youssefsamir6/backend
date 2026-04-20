@@ -13,11 +13,35 @@ const seedData = async () => {
     await Log.deleteMany();
     await Alert.deleteMany();
     
-    // Seed users
+    // Seed users with face data
     const users = [
-      { email: 'admin@test.com', password: 'admin123', role: 'admin' },
-      { email: 'guard@test.com', password: 'guard123', role: 'guard' },
-      { email: 'user@test.com', password: 'user123', role: 'user' }
+      { 
+        email: 'admin@test.com', 
+        name: 'Admin User',
+        idNumber: 'ADMIN001',
+        password: 'admin123', 
+        role: 'admin',
+        faceImages: [{ data: '/9j/4AAQSkZJRgABAQAAAQABAAD...' }], // dummy base64
+        faceEmbedding: Array(128).fill(0.1).map((v,i) => v + i*0.001) // dummy 128-dim vec
+      },
+      { 
+        email: 'guard@test.com', 
+        name: 'Security Guard',
+        idNumber: 'GUARD101',
+        password: 'guard123', 
+        role: 'guard',
+        faceImages: [{ data: '/9j/4AAQSkZJRgABAQAAAQABAAD...' }],
+        faceEmbedding: Array(128).fill(0.2).map((v,i) => v + i*0.0008)
+      },
+      { 
+        email: 'user@test.com', 
+        name: 'John Student',
+        idNumber: 'STUDENT456',
+        password: 'user123', 
+        role: 'user',
+        faceImages: [{ data: '/9j/4AAQSkZJRgABAQAAAQABAAD...' }],
+        faceEmbedding: Array(128).fill(0.05).map((v,i) => v + i*0.0012)
+      }
     ];
 
     const seededUsers = [];
@@ -25,7 +49,7 @@ const seedData = async () => {
       const user = new User(userData);
       await user.save();
       seededUsers.push(user);
-      console.log(`Created user: ${user.email}`);
+      console.log(`Created user: ${user.email} (${user.idNumber})`);
     }
 
     const userId = seededUsers[2]._id; // user@test.com

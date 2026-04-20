@@ -2,32 +2,38 @@ const User = require('../models/User.model');
 const Log = require('../models/Log.model');
 const Alert = require('../models/Alert.model');
 
-// For legacy/hybrid support
+// Services
 const { createLog } = require('./log.service');
-
-// Reusable io from server
-const getIO = require('../server').getIO;
-const io = getIO();
+const { recognizeFace: aiRecognize } = require('./ai.service');
 
 /**
  * Central access control function following exact specification
- * @param {Object} data - { userId, method: "face"|"card", timestamp, deviceId, confidence (for AI), gateName? }
+ * @param {Object} data - { userId, method: \"face\"|\"card\", timestamp, deviceId, confidence (for AI), gateName?, image? }
  * @returns {Promise<{success: boolean, status?: string, error?: string}>}
  */
 async function handleAccessEvent(data) {
   try {
     // 1. Input validation (strict per spec)
-    const { userId, method, timestamp = new Date(), deviceId, confidence, gateName = 'Main Gate' } = data;
+    const { userId, method, timestamp = new Date(), deviceId, confidence, gateName = 'Main Gate', image } = data;
     
-    if (!userId || !method || !deviceId) {
-      throw new Error('Missing required fields: userId, method, deviceId');
+    if (!method || !deviceId) {
+      throw new Error('Missing required fields: method, deviceId');
+    }
+
+    // Auto AI recognition for anonymous face access
+    let effectiveUserId = userId;
+    let effectiveConfidence = confidence;
+    if (method === 'face' && image && !effectiveUserId) {
+      const rec = await aiRecognize(image);
+      effectiveUserId = rec.userId;
+      effectiveConfidence = rec.confidence;
     }
 
     // 2. Identify/lookup user
-    const user = await User.findById(data.userId).select('name email isActive'); // Assume 'name' added or use email
+    const user = await User.findById(effectiveUserId).select('name email isActive');
 
     // 3. Decision engine
-    let status = "denied";
+let status = "denied";
 
     if (user && user.isActive) {
       const now = new Date(); // Use current time (timestamp logged separately)
@@ -45,42 +51,17 @@ async function handleAccessEvent(data) {
     // Status for logging (capitalize)
     const logStatus = status === 'authorized' ? 'Authorized' : 'Unauthorized';
 
-    // 4. Save log (direct model create)
-    const log = await Log.create({
+    // Central logging via service (DB + emit + alert)
+    await createLog({
       userId: user ? user._id : null,
       status: logStatus,
       method: data.method,
       timestamp: timestamp,
       deviceId,
-      confidence: confidence || null,
+      confidence: effectiveConfidence,
       reason: status === 'authorized' ? 'Active user, within time window' : 
               (user ? 'Inactive user or outside time window' : 'User not found'),
       gateName
-    });
-
-    // 5. Alert if denied
-    if (status === "denied") {
-      await Alert.create({
-        type: "unauthorized_access",
-        message: "Access denied",
-        userId: user ? user._id : null,
-        severity: 'high',
-        timestamp: new Date()
-      });
-
-      // Emit alert (global)
-      io.emit("alert", {
-        type: "unauthorized",
-        user: user ? (user.name || user.email) : "Unknown"
-      });
-    }
-
-    // 6. Emit real-time event (exact task format)
-    io.emit("access_event", {
-      user: user ? (user.name || user.email) : "Unknown",
-      status: logStatus,
-      method: data.method,
-      time: new Date()
     });
 
     return { success: true, status };
@@ -91,53 +72,11 @@ async function handleAccessEvent(data) {
   }
 }
 
-// Legacy functions (unchanged)
-const recognizeFace = async (imageBase64) => {
-  // Simulate hash from base64 for deterministic mock
-  const hash = imageBase64.slice(-8);
-  const faceId = parseInt(hash, 16) % 1000;
-
-  const users = await User.find({}, 'email _id');
-  const knownEmails = ['admin@test.com', 'guard@test.com', 'user@test.com'];
-  const KNOWN_FACES = {
-    'admin@test.com': { minConf: 0.85, maxConf: 0.99 },
-    'guard@test.com': { minConf: 0.82, maxConf: 0.98 },
-    'user@test.com': { minConf: 0.78, maxConf: 0.95 }
-  };
-  
-  let userId = null, confidence, status, reason = 'Face recognized';
-
-  if (faceId % 10 < 6) { // known
-    const email = knownEmails[faceId % knownEmails.length];
-    const range = KNOWN_FACES[email];
-    confidence = (Math.random() * (range.maxConf - range.minConf) + range.minConf).toFixed(2);
-    const user = users.find(u => u.email === email);
-    if (user) userId = user._id;
-    status = 'authorized';
-  } else if (faceId % 10 < 8.5) { // suspicious
-    confidence = (0.5 + Math.random() * 0.25).toFixed(2);
-    status = 'suspicious';
-    reason = 'Low confidence match';
-  } else { // unknown
-    confidence = (0.1 + Math.random() * 0.3).toFixed(2);
-    status = 'unknown';
-    reason = 'Unknown face';
-  }
-
-  return {
-    userId,
-    confidence: parseFloat(confidence),
-    status,
-    reason,
-    method: 'face'
-  };
-};
-
 const smartDecision = async (imageBase64, gateName, identifiedUserId = null) => {
   let rec = { status: 'authorized', confidence: 1.0, reason: 'Pre-identified user' };
 
   if (imageBase64) {
-    rec = await recognizeFace(imageBase64);
+    rec = await aiRecognize(imageBase64);
   }
 
   // Check recent logs for suspicious patterns
@@ -168,5 +107,5 @@ const smartDecision = async (imageBase64, gateName, identifiedUserId = null) => 
   };
 };
 
-module.exports = { handleAccessEvent, recognizeFace, smartDecision };
+module.exports = { handleAccessEvent, smartDecision };
 

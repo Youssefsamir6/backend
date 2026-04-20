@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth.middleware');
-const { recognition, smartAccess } = require('../controllers/ai.controller');
+const { authenticateToken, authenticateDevice, authorizeRoles } = require('../middleware/auth.middleware');
 
-router.use(authenticateToken);
+const { recognition, smartAccess, extractEmbedding } = require('../controllers/ai.controller');
 
-router.post('/recognition', recognition); // Basic face rec
-router.post('/smart-access', smartAccess); // Full decision + auto-log
+// Device endpoints (no user token, API key only)
+router.post('/device/recognition', authenticateDevice, recognition);
+router.post('/device/smart-access', authenticateDevice, smartAccess);
+
+// Admin endpoints (user token + role)
+router.post('/admin/recognition', authenticateToken, authorizeRoles('admin'), recognition);
+router.post('/admin/extract-embedding', authenticateToken, authorizeRoles('admin'), extractEmbedding);
 
 module.exports = router;
 

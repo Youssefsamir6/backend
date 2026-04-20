@@ -2,8 +2,7 @@ const Alert = require('../models/Alert.model');
 const Log = require('../models/Log.model');
 const User = require('../models/User.model');
 
-// Global io from server
-const io = global.io;
+// Reusable io from server\nconst io = global.io;
 
 const createAlert = async ({ userId, type, message = '', severity = 'medium' }) => {
   const alert = new Alert({ userId, type, message, severity });

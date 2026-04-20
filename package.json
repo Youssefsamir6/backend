@@ -1,18 +1,22 @@
 {
   "name": "smart-access-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Smart Access Control Backend with Face Recognition AI",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "worker": "cd ai-worker && python app.py",
+    "dev:full": "concurrently \"npm run dev\" \"npm run worker\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "axios": "^1.15.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -20,10 +24,12 @@
     "joi": "^18.1.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.0.1",
+    "multer": "^2.1.1",
     "openai": "^6.34.0",
     "socket.io": "^4.8.0"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "nodemon": "^3.1.11"
   }
 }

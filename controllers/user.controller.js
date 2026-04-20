@@ -3,7 +3,9 @@ const {
   getUserById,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  addFaceImages: addFaceImagesService,
+  deleteFaceImages: deleteFaceImagesService
 } = require('../services/user.service');
 
 const getUsers = async (req, res) => {
@@ -51,11 +53,34 @@ const deleteExistingUser = async (req, res) => {
   }
 };
 
+const addFaceImages = async (req, res) => {
+  try {
+    const images = req.files ? req.files.map(f => ({
+      data: `data:${f.mimetype};base64,${f.buffer.toString('base64')}`
+    })) : [ { data: req.body.image } ];
+    const user = await addFaceImagesService(req.params.id, images);
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const deleteFaceImages = async (req, res) => {
+  try {
+    const user = await deleteFaceImagesService(req.params.id);
+    res.json(user);
+  } catch (error) {
+    res.status(404).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getUsers,
   getUser,
   createNewUser,
   updateExistingUser,
-  deleteExistingUser
+  deleteExistingUser,
+  addFaceImages,
+  deleteFaceImages
 };
 

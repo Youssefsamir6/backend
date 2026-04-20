@@ -28,6 +28,36 @@ const updateUser = async (id, updateData) => {
   return user;
 };
 
+const { extractEmbedding } = require('./ai.service');
+
+const addFaceImages = async (userId, images) => {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found');
+
+  
+  for (let imgData of images) {
+    const embedding = await extractEmbedding(imgData.data);
+    user.faceImages.push({
+      data: imgData.data,
+      uploadedAt: new Date()
+    });
+    user.faceEmbedding = embedding; // Latest embedding
+  }
+  
+  await user.save();
+  return user;
+};
+
+const deleteFaceImages = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found');
+
+  user.faceImages = [];
+  user.faceEmbedding = undefined;
+  await user.save();
+  return user;
+};
+
 const deleteUser = async (id) => {
   const user = await User.findById(id);
   if (!user) throw new Error('User not found');
@@ -40,6 +70,9 @@ module.exports = {
   getUserById,
   createUser,
   updateUser,
+  addFaceImages,
+  deleteFaceImages,
   deleteUser
 };
+
 

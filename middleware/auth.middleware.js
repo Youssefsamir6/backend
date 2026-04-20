@@ -23,5 +23,18 @@ const authorizeRoles = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { authenticateToken, authorizeRoles };
+const DEVICE_KEYS = process.env.DEVICE_API_KEYS ? JSON.parse(process.env.DEVICE_API_KEYS) : ['dev-key-123'];
+
+const authenticateDevice = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'] || req.headers['X-API-Key'];
+  
+  if (!apiKey || !DEVICE_KEYS.includes(apiKey)) {
+    return res.status(401).json({ error: 'Device API key required' });
+  }
+  
+  req.device = { apiKey, deviceId: req.body.deviceId };
+  next();
+};
+
+module.exports = { authenticateToken, authorizeRoles, authenticateDevice };
 
